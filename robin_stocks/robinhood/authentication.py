@@ -207,6 +207,7 @@ def login(username=None, password=None, expiresIn=86400, scope='internal', store
                 workflow_id = data['verification_workflow']['id']
                 successful = _validate_sherrif_id(device_token, workflow_id)
                 if not successful:
+                    print("Verification failed.")
                     return {"status": "failed"}
 
                 # Reattempt login after verification
