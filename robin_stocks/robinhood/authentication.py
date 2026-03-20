@@ -53,11 +53,16 @@ def _validate_sherrif_id(device_token: str, workflow_id: str):
             if challenge_type == "prompt":
                 print("Check robinhood app for device approvals method...")
                 prompt_url = f"https://api.robinhood.com/push/{challenge_id}/get_prompts_status/"
-                while True:
+                validation_time = 0
+                while validation_time * 5 <= 120:
                     time.sleep(5)
                     prompt_challenge_status = request_get(url=prompt_url)
                     if prompt_challenge_status["challenge_status"] == "validated":
                         break
+                    validation_time += 1
+                if prompt_challenge_status["challenge_status"] != "validated":
+                    return False
+
                 break
 
             if challenge_status == "validated":
@@ -83,7 +88,7 @@ def _validate_sherrif_id(device_token: str, workflow_id: str):
             inquiries_response = request_post(url=inquiries_url, payload=inquiries_payload,json=True)
             if "type_context" in inquiries_response and inquiries_response["type_context"]["result"] == "workflow_status_approved":
                 print("Verification successful!")
-                return
+                return True
             else:
                 time.sleep(5)  # **Increase delay between requests to prevent rate limits**
         except requests.exceptions.RequestException as e:
@@ -107,7 +112,7 @@ def _validate_sherrif_id(device_token: str, workflow_id: str):
 
         if workflow_status == "workflow_status_approved":
             print("Workflow status approved! Proceeding with login...")
-            return
+            return True
         elif workflow_status == "workflow_status_internal_pending":
             print("Still waiting for Robinhood to finalize login approval...")
         else:
@@ -200,7 +205,9 @@ def login(username=None, password=None, expiresIn=86400, scope='internal', store
             if 'verification_workflow' in data:
                 print("Verification required, handling challenge...")
                 workflow_id = data['verification_workflow']['id']
-                _validate_sherrif_id(device_token, workflow_id)
+                successful = _validate_sherrif_id(device_token, workflow_id)
+                if not successful:
+                    return {"status": "failed"}
 
                 # Reattempt login after verification
                 data = request_post(url, login_payload)
@@ -220,8 +227,8 @@ def login(username=None, password=None, expiresIn=86400, scope='internal', store
         except Exception as e:
             print(f"Error during login verification: {e}")
 
-    print("Login failed. Check credentials and try again.")
-    return None
+    print("Login Successful?")
+    return {"status": "success"}
 
 
 @login_required
